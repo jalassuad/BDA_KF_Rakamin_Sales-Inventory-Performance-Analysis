@@ -1,0 +1,122 @@
+/* Langkah 1: Membuat atau memperbarui tabel hasil analisis (kf_analysis).
+Tabel ini menggabungkan data transaksi, informasi cabang, dan informasi produk.
+*/
+CREATE OR REPLACE TABLE `kimiafarma-bda.kimia_farma.kf_analysis` AS
+
+SELECT
+  -- 1. Mengambil kolom identitas dasar transaksi
+  t.transaction_id AS transaction_id,
+  t.date,
+  
+  -- 2. Mengambil informasi cabang dengan konversi tipe data yang sesuai
+  CAST(t.branch_id AS INT64) AS branch_id,
+  b.branch_name AS branch_name,
+  b.kota AS kota,
+  b.provinsi AS provinsi,
+  CAST(b.rating AS FLOAT64) AS rating_cabang, -- Rating rata-rata cabang
+  
+  -- 3. Mengambil informasi detail pelanggan dan produk
+  t.customer_name AS customer_name,
+  t.product_id AS product_id,
+  p.product_name AS product_name,
+  
+  -- 4. Mengambil harga asli dan menangani nilai null pada diskon
+  CAST(t.price AS INT64)  AS actual_price,
+  CAST(IFNULL(t.discount_percentage, 0) AS FLOAT64) AS discount_percentage, 
+
+  /* 5. Menghitung Persentase Gross Laba:
+     Logika bisnis untuk menentukan margin keuntungan berdasarkan tier harga produk.
+  */
+  CASE
+    WHEN t.price <= 50000 THEN 0.10                         -- Harga <= 50rb: Margin 10%
+    WHEN t.price > 50000  AND t.price <= 100000 THEN 0.15   -- Harga 50rb - 100rb: Margin 15%
+    WHEN t.price > 100000 AND t.price <= 300000 THEN 0.20   -- Harga 100rb - 300rb: Margin 20%
+    WHEN t.price > 300000 AND t.price <= 500000 THEN 0.25   -- Harga 300rb - 500rb: Margin 25%
+    ELSE 0.30                                               -- Harga > 500rb: Margin 30%
+  END AS persentase_gross_laba,
+
+  /* 6. Menghitung Nett Sales:
+     Rumus: Harga x (1 - Diskon). Hasil dibulatkan 2 angka di belakang koma.
+  */
+  CAST(ROUND(t.price * (1 - IFNULL(t.discount_percentage, 0)), 2) AS NUMERIC) AS nett_sales,
+
+  /* 7. Menghitung Nett Profit:
+     Rumus: (Harga setelah diskon) x Persentase Gross Laba.
+     Menggunakan logika CASE yang sama untuk memastikan akurasi perhitungan laba bersih.
+  */
+  CAST(ROUND(t.price * (1 - IFNULL(t.discount_percentage, 0)) *
+      CASE
+        WHEN t.price <= 50000 THEN 0.10                        -- Harga <= 50rb: Margin 10%
+        WHEN t.price > 50000  AND t.price <= 100000 THEN 0.15  -- Harga 50rb - 100rb: Margin 15%
+        WHEN t.price > 100000 AND t.price <= 300000 THEN 0.20  -- Harga 100rb - 300rb: Margin 20%
+        WHEN t.price > 300000 AND t.price <= 500000 THEN 0.25  -- Harga 300rb - 500rb: Margin 25%
+        ELSE 0.30                                              -- Harga > 500rb: Margin 30%
+      END, 2) AS NUMERIC) AS nett_profit,
+
+  -- 8. Mengambil rating kualitas pelayanan per transaksi
+  CAST(t.rating AS FLOAT64) AS rating_transaksi
+
+-- SUMBER DATA DAN PENGGABUNGAN (JOIN)
+FROM `kimiafarma-bda.kimia_farma.kf_final_transaction` AS t 
+-- Menghubungkan tabel transaksi dengan tabel kantor cabang berdasarkan branch_id
+LEFT JOIN `kimiafarma-bda.kimia_farma.kf_kantor_cabang` AS b
+  ON CAST(t.branch_id AS INT64) = CAST(b.branch_id AS INT64) 
+-- Menghubungkan tabel transaksi dengan tabel produk berdasarkan product_id
+LEFT JOIN `kimiafarma-bda.kimia_farma.kf_product` AS p
+  ON t.product_id = p.product_id;
+
+/* Langkah 2: Membuat tabel analisis yang diperkaya dengan data inventori (Opname Stock).
+Tujuannya adalah melihat ketersediaan stok di cabang saat transaksi terjadi 
+dan menghitung total nilai aset stok.
+*/
+CREATE OR REPLACE TABLE `kimiafarma-bda.kimia_farma.kf_analysis_with_inventory` AS
+
+SELECT
+  -- 1. Mengambil seluruh kolom hasil kalkulasi dari tabel analisis sebelumnya (Langkah 1)
+  a.transaction_id,
+  a.date,
+  a.branch_id,
+  a.branch_name,
+  a.kota,
+  a.provinsi,
+  a.rating_cabang,
+  a.customer_name,
+  a.product_id,
+  a.product_name,
+  p.product_category,
+  a.actual_price,
+  a.discount_percentage,
+  a.persentase_gross_laba,
+  a.nett_sales,
+  a.nett_profit,
+  a.rating_transaksi,
+
+  -- 2. Mengambil informasi stok fisik (Opname Stock) dari tabel inventori
+  inv.inventory_id,
+  CAST(inv.opname_stock AS INT64) AS opname_stock,
+
+  /* 3. Mengambil Harga Master Produk:
+     Menggunakan p.price dari tabel master produk untuk konsistensi nilai aset, 
+     bukan menggunakan harga transaksi yang mungkin sudah berubah (diskon/promo).
+  */
+  CAST(p.price AS INT64) AS product_master_price,
+
+  /* 4. Menghitung Nilai Stok (Stock Value):
+     Rumus: Jumlah Stok Fisik x Harga Master Produk.
+     Menggunakan SAFE_CAST untuk menghindari error jika ada data stok yang tidak valid.
+  */
+  SAFE_CAST(inv.opname_stock AS INT64) * CAST(p.price AS INT64) AS stock_value
+
+-- SUMBER DATA DAN PENGGABUNGAN (JOIN)
+FROM `kimiafarma-bda.kimia_farma.kf_analysis` AS a
+
+-- 5. Menghubungkan data transaksi dengan inventori.
+-- Join dilakukan berdasarkan DUA kunci (branch_id DAN product_id) 
+-- agar stok yang muncul sesuai dengan lokasi cabang dan jenis produk yang tepat.
+LEFT JOIN `kimiafarma-bda.kimia_farma.kf_inventory` AS inv
+  ON a.branch_id = inv.branch_id
+ AND a.product_id = inv.product_id
+
+-- 6. Menghubungkan kembali ke master produk untuk mendapatkan harga referensi terbaru
+LEFT JOIN `kimiafarma-bda.kimia_farma.kf_product` AS p
+  ON a.product_id = p.product_id;
