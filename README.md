@@ -1,7 +1,6 @@
-# BDA_KF_Rakamin — Sales & Inventory Performance Analysis (Kimia Farma 2020–2023)
+# Project-Based Internship — Sales & Inventory Performance Analysis (Kimia Farma 2020–2023)
 
 ![Sales Dashboard Preview](./assets/Sales_Dashboard_preview.png)
-![Inventory Dashboard Preview](./assets/Inventory_Dashboard_preview.png)
 
 ## 1) Project Overview
 This project delivers a unified analytical view of **sales, profitability, and inventory** for Kimia Farma across **2020–2023**. The solution integrates raw tables into a curated dataset and publishes **interactive dashboards** to explore trends, product/branch performance, stock value, and action points for business improvement.
@@ -41,7 +40,7 @@ This project delivers a unified analytical view of **sales, profitability, and i
 - Use **master product price** for consistent asset valuation (not transactional price).
 - Compute **stock_value** = `opname_stock × product_master_price`.
 
-> SQL scripts are placed under `/sql` (e.g., `01_kf_analysis.sql`, `02_kf_enrichment_inventory.sql`).
+> SQL scripts are placed under `/sql` (e.g., `01_kf_analysis.sql`, `02_kf_analysis_with_inventory.sql`).
 
 ## 6) KPIs & Metrics
 - **Total Transaction**  
@@ -56,21 +55,25 @@ This project delivers a unified analytical view of **sales, profitability, and i
 ## 7) Dashboard Features
 **Global Filters**: Year, Province, City, Branch, Product/Category, Mode (Sales/Inventory)
 
-**Sales Page (preview above)**
-- KPI cards (Total Transaction, Total Revenue, Total Profit)
+**Sales Page (preview below)**
+- **KPI cards (Total Transaction, Total Revenue, Total Profit)**
 - **Revenue per Year**
 - **Top 10 Total Transaction by Province**
 - **Top 10 Total Nett Sales by Province**
 - **Top 5 Product by Total Revenue**
 - **Geographic Distribution of Nett Profit**
 - **Top 5 Branches with High Branch Rating but Low Transaction Rating**
+  
+![Sales Dashboard Preview](./assets/Sales_Dashboard_preview.png)
 
-**Inventory Page (preview above)**
+**Inventory Page (preview below)**
 - **Total Opname Stock** & **Total Stock Value (IDR)**
 - **Top 5 Opname Stock by Product**
 - **Top Opname Stock by Branch**
 - **Stock Distribution by Product Category** (treemap)
 - **Top 10 Products with Highest Stock Value**
+
+![Inventory Dashboard Preview](./assets/Inventory_Dashboard_preview.png)
 
 ## 8) Key Insights (At a Glance)
 - **Revenue stability** around ~IDR 80B per year with low volatility in 2020–2023.  
@@ -94,12 +97,13 @@ This project delivers a unified analytical view of **sales, profitability, and i
 
 ## 11) Repository Structure
 .
-├── assets/
-│   ├── Sales_Dashboard_preview.png
-│   └── Inventory_Dashboard_preview.png
-├── sql/
-│   ├── 01_kf_analysis.sql
-│   └── 02_kf_analysis_with_inventory.sql
+├── assets/ <br>
+│   ├── Sales_Dashboard_preview.png <br>
+│   └── Inventory_Dashboard_preview.png <br>
+├── sql/ <br>
+│   ├── 01_kf_analysis.sql <br>
+│   └── 02_kf_analysis_with_inventory.sql <br>
+├── Query_BDA_KF_Rakamin_Sales-Inventory-Performance-Analysis_KJ <br>
 └── README.md
 
 ## 12) Limitations & Notes
